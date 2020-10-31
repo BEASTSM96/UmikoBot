@@ -384,7 +384,12 @@ CurrencyModule::CurrencyModule(UmikoBot* client) : Module("currency", true), m_c
 			return;
 		}
 
-		
+		if (!guildList[channel.guildId()][getUserIndex(channel.guildId(), message.author().id())].canClaimFreebies)
+		{
+			client.createMessage(message.channelId(), "**You can't claim freebies while in safemode!**");
+			return;
+		}
+
 		if (args.size() == 1) 
 		{
 			if (!getServerData(channel.guildId()).isRandomGiveawayDone) 
@@ -1128,6 +1133,28 @@ CurrencyModule::CurrencyModule(UmikoBot* client) : Module("currency", true), m_c
 			return;
 		}
 
+		CurrencyModule* currencyModule = static_cast<CurrencyModule*>(UmikoBot::Instance().GetModuleByName("currency"));
+		if (currencyModule)
+		{
+			const CurrencyModule::UserCurrency& userCurrency = currencyModule->getUserData(channel.guildId(), authorId);
+			if (userCurrency.canSteal == false)
+			{
+				client.createMessage(message.channelId(), "**You can't steal while in safemode!**");
+				return;
+			}
+		}
+		
+		CurrencyModule* currencyModule = static_cast<CurrencyModule*>(UmikoBot::Instance().GetModuleByName("currency"));
+		if (currencyModule)
+		{
+			const CurrencyModule::UserCurrency& userCurrency = currencyModule->getUserData(channel.guildId(), authorId);
+			if (userCurrency.canSteal == false)
+			{
+				client.createMessage(message.channelId(), "**You can't steal while in safemode!**");
+				return;
+			}
+		}
+
 		int jailRemainingTime = guildList[channel.guildId()][getUserIndex(channel.guildId(), authorId)].jailTimer->remainingTime();
 		if (jailRemainingTime > 0)
 		{
@@ -1171,6 +1198,19 @@ CurrencyModule::CurrencyModule(UmikoBot* client) : Module("currency", true), m_c
 		}
 
 		snowflake_t victimId = mentions[0].id();
+		
+		if (guildList[channel.guildId()][getUserIndex(channel.guildId(), victimId)].isInSafemode())
+		{
+			client.createMessage(message.channelId(), "**The victim is in safemode! **");
+			return;
+		}
+		
+				if (guildList[channel.guildId()][getUserIndex(channel.guildId(), victimId)].isInSafemode())
+		{
+			client.createMessage(message.channelId(), "**The victim is in safemode! **");
+			return;
+		}
+
 		if (victimId == authorId)
 		{
 			client.createMessage(message.channelId(), "**You cannot steal from yourself.**");
@@ -1547,6 +1587,40 @@ void CurrencyModule::OnMessage(Discord::Client& client, const Discord::Message& 
 	Module::OnMessage(client, message);
 }
 
+void CurrencyModule::setSafeMode(Discord::Channel channel, Discord::Message msg, bool on)
+{
+	auto guildID = channel.guildId();
+	auto authorId = msg.author().id();
+
+	if (on)
+	{
+		guildList[guildID][getUserIndex(guildID, authorId)].canSteal = false;
+		guildList[guildID][getUserIndex(guildID, authorId)].canClaimFreebies = false;
+	}
+	else 
+	{
+		guildList[guildID][getUserIndex(guildID, authorId)].canSteal = true;
+		guildList[guildID][getUserIndex(guildID, authorId)].canClaimFreebies = true;
+	}
+}
+
+void CurrencyModule::setSafeMode(Discord::Channel channel, Discord::Message msg, bool on)
+{
+	auto guildID = channel.guildId();
+	auto authorId = msg.author().id();
+
+	if (on)
+	{
+		guildList[guildID][getUserIndex(guildID, authorId)].canSteal = false;
+		guildList[guildID][getUserIndex(guildID, authorId)].canClaimFreebies = false;
+	}
+	else 
+	{
+		guildList[guildID][getUserIndex(guildID, authorId)].canSteal = true;
+		guildList[guildID][getUserIndex(guildID, authorId)].canClaimFreebies = true;
+	}
+}
+
 void CurrencyModule::OnSave(QJsonDocument& doc) const 
 {
 	QJsonObject docObj;
@@ -1676,6 +1750,9 @@ void CurrencyModule::OnLoad(const QJsonDocument& doc)
 			config.stealFinePercent = serverObj["stealFinePercent"].toString("50").toUInt();
 			config.stealVictimBonusPercent = serverObj["stealVictimBonusPercent"].toString("25").toUInt();
 			config.stealFailedJailTime = serverObj["stealFailedJailTime"].toString("3").toUInt();
+			config.bribeSuccessChance = serverObj["bribeSuccessChance"].toString("68").toUInt();
+			config.bribeMaxAmount = serverObj["bribeMaxAmount"].toString("150").toInt();
+			config.bribeLeastAmount = serverObj["bribeLeastAmount"].toString("20").toInt();
 			config.bribeSuccessChance = serverObj["bribeSuccessChance"].toString("68").toUInt();
 			config.bribeMaxAmount = serverObj["bribeMaxAmount"].toString("150").toInt();
 			config.bribeLeastAmount = serverObj["bribeLeastAmount"].toString("20").toInt();
